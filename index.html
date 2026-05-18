@@ -90,6 +90,9 @@
         
         let player={x:135, y:1850}, fires=[], gameActive=false, startTime, finalScore, shareText="", life=3, invincibilityFrames=0, damagePenalty=0;
         let lastTickSecond = 40;
+        
+        let lastFrameTime = 0; 
+
         const viewHeight=400, RANKING_KEY='lannu_ranking_v1';
         const TIME_LIMIT = 40000; 
 
@@ -142,6 +145,7 @@
             startScreen.style.display='none'; 
             gameActive=true; 
             startTime=Date.now(); 
+            lastFrameTime = 0; 
             setInterval(createFire, 350); 
             requestAnimationFrame(loop); 
         }
@@ -168,7 +172,8 @@
             let x=Math.random()*290, y=Math.max(10,player.y-450-(Math.random()*200));
             f.style.left=x+'px'; f.style.top=y+'px'; world.appendChild(f); fires.push({el:f,x:x+12,y:y+17});
         }
-        function moveFires(){
+        
+        function moveFires(dtMultiplier){ 
             if(!gameActive)return;
             let elapsed = Date.now() - startTime;
             let remaining = Math.max(0, (TIME_LIMIT - elapsed) / 1000);
@@ -190,10 +195,10 @@
                 return;
             }
 
-            if(invincibilityFrames>0)invincibilityFrames--;
+            if(invincibilityFrames>0)invincibilityFrames -= dtMultiplier; 
             const pX=player.x+25, pY=player.y+25;
             fires.forEach((f,n)=>{
-                f.y+=3.5; if(f.el)f.el.style.top=(f.y-17)+'px';
+                f.y += 3.5 * dtMultiplier; if(f.el)f.el.style.top=(f.y-17)+'px';
                 if(Math.sqrt((f.x-pX)**2+(f.y-pY)**2)<28&&invincibilityFrames<=0){
                     life--; damagePenalty+=3000; invincibilityFrames=60; 
                     playSE('damage');
@@ -234,7 +239,19 @@
         btnRetry.onclick=()=>location.reload();
         function saveScore(n,s){let r=JSON.parse(localStorage.getItem(RANKING_KEY))||[]; r.push({name:n,score:s}); r.sort((a,b)=>b.score-a.score); r=r.slice(0,5); localStorage.setItem(RANKING_KEY,JSON.stringify(r));}
         function displayRanking(){let r=JSON.parse(localStorage.getItem(RANKING_KEY))||[]; if(!r.length)return; let h=""; r.forEach((t,i)=>{let n=t.name.length>7?t.name.substring(0,6)+'…':t.name; h+=`${i+1}. ${n} (${t.score})<br>`;}); rankListElement.innerHTML=h;}
-        function loop(){ if(gameActive){ moveFires(); updateView(); requestAnimationFrame(loop); } }
+        
+        function loop(timestamp){ 
+            if(gameActive){ 
+                if(!lastFrameTime) lastFrameTime = timestamp;
+                let dt = timestamp - lastFrameTime;
+                lastFrameTime = timestamp;
+                let dtMultiplier = dt / (1000 / 60); 
+
+                moveFires(dtMultiplier); 
+                updateView(); 
+                requestAnimationFrame(loop); 
+            } 
+        }
     </script>
 </body>
 </html>
